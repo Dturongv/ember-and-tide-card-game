@@ -148,6 +148,7 @@ export function renderCardHtml(card, { faceDown = false, telegraphed = false, se
 
   return `<div class="card card-${suit} ${selected ? 'selected' : ''}" data-uid="${card.uid || index}" data-suit="${suit}" data-value="${card.value}" data-cost="${card.cost}">
     ${telegraphed ? '<div class="telegraphed-badge">TELEGRAPHED INTENT</div>' : ''}
+    <div class="card-tooltip"><strong>${card.title}</strong> [${card.role} • Cost ${card.cost}]: ${card.desc || ''}</div>
     <div class="card-inner">
       <div class="card-top-row">
         <span class="card-value">${card.value}</span>

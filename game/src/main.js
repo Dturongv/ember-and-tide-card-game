@@ -101,13 +101,27 @@ export class GameApp {
 
     if (!resolution) return;
 
+    // Handle Combo Audio & FX
     if (resolution.playerCombo) {
       this.audio.playComboChime();
       this.renderer.spawnBurst(640, 360, '#ffd700', 45);
+      if (resolution.playerCombo.details.burn) this.audio.playBurn();
+      if (resolution.playerCombo.details.bonusShield) this.audio.playShield();
     }
     if (resolution.counterBonus > 0) {
       this.audio.playCounterImpact();
       this.renderer.spawnBurst(640, 360, '#e84a27', 35);
+    }
+
+    // Process Floating Combat Texts from Events
+    if (resolution.events) {
+      resolution.events.forEach((ev, i) => {
+        if (ev.type === 'floating') {
+          const x = ev.target === 'opponent' ? 480 + (i * 30) : 220 + (i * 30);
+          const y = ev.target === 'opponent' ? 240 : 560;
+          this.renderer.spawnFloatingText(x, y, ev.text, ev.color);
+        }
+      });
     }
 
     // Check game termination
@@ -188,9 +202,11 @@ export class GameApp {
     this.engine.player.hp = 16;
     this.engine.player.shield = 4;
     this.engine.player.energy = 2;
+    this.engine.player.thorns = 3; // Show thorns status badge!
 
     this.engine.opponent.hp = 13;
     this.engine.opponent.shield = 2;
+    this.engine.opponent.burn = 2;   // Show burn status badge!
 
     // Fixed realistic cards for presentation
     this.engine.player.hand = [
@@ -227,9 +243,12 @@ export class GameApp {
       badge.className = 'combo-preview-badge visible';
     }
 
-    // Add glowing ambient particles
-    this.renderer.spawnBurst(640, 350, '#ffd700', 40);
-    this.renderer.spawnBurst(580, 520, '#e84a27', 25);
+    // Add glowing ambient particles and floating combat texts
+    this.renderer.spawnBurst(640, 350, '#ffd700', 45);
+    this.renderer.spawnBurst(580, 520, '#e84a27', 30);
+    this.renderer.spawnFloatingText(520, 260, '-8 HP (WILDFIRE)', '#ff4141');
+    this.renderer.spawnFloatingText(210, 560, '+5 SHIELD', '#1BA6A6');
+    this.renderer.spawnFloatingText(560, 340, 'COUNTER BREAK! +3', '#E84A27');
 
     if (shot === 'victory') {
       this.showVictory();

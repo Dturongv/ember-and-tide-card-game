@@ -1,6 +1,6 @@
 /**
  * EMBER & TIDE - Visual Renderer & FX Particle System
- * Manages DOM updates, card fan layouts, and procedural canvas particles.
+ * Manages DOM updates, card fan layouts, floating combat text, and procedural canvas particles.
  */
 
 import { renderCardHtml } from './cards.js';
@@ -11,6 +11,7 @@ export class GameRenderer {
     this.canvas = document.getElementById('fx-canvas');
     this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
     this.particles = [];
+    this.floatingTexts = [];
     this.animating = false;
 
     if (this.canvas) {
@@ -49,10 +50,21 @@ export class GameRenderer {
 
     if (energyOrbs) {
       let html = '';
-      for (let i = 0; i < 3; i++) {
+      const totalOrbs = Math.max(3, engine.player.maxEnergy || 3);
+      for (let i = 0; i < totalOrbs; i++) {
         html += `<span class="energy-orb ${i < engine.player.energy ? 'active' : ''}"></span>`;
       }
       energyOrbs.innerHTML = html;
+    }
+
+    // Status Badges for Player
+    const playerStatusEl = document.getElementById('player-status');
+    if (playerStatusEl) {
+      let statusList = ['Your Turn'];
+      if (engine.player.burn > 0) statusList.push(`🔥 Burn (${engine.player.burn})`);
+      if (engine.player.thorns > 0) statusList.push(`🛡️ Thorns (${engine.player.thorns})`);
+      if (engine.player.bonusEnergyNext > 0) statusList.push(`⚡ Surge (+1)`);
+      playerStatusEl.textContent = statusList.join(' | ');
     }
 
     const oHpText = document.getElementById('opponent-hp-text');
@@ -64,6 +76,15 @@ export class GameRenderer {
     if (oHpBar) oHpBar.style.width = `${Math.max(0, (engine.opponent.hp / engine.opponent.maxHp) * 100)}%`;
     if (oShieldText) oShieldText.textContent = `${engine.opponent.shield}`;
     if (oShieldBar) oShieldBar.style.width = `${Math.min(100, engine.opponent.shield * 10)}%`;
+
+    // Status Badges for Opponent
+    const oppStatusEl = document.getElementById('opponent-status');
+    if (oppStatusEl) {
+      let statusList = ['Plotting...'];
+      if (engine.opponent.burn > 0) statusList.push(`🔥 Burn (${engine.opponent.burn})`);
+      if (engine.opponent.frozen) statusList.push(`❄️ Frozen (-50% Atk)`);
+      oppStatusEl.textContent = statusList.join(' | ');
+    }
   }
 
   renderHands(engine) {
@@ -151,7 +172,7 @@ export class GameRenderer {
         if (other !== current) {
           const combo = evaluateCombo(current, other);
           if (combo) {
-            badge.textContent = `COMBO POSSIBLE: ${combo.name.toUpperCase()}`;
+            badge.textContent = `COMBO POSSIBLE: ${combo.name.toUpperCase()} (+${combo.details.description})`;
             badge.className = 'combo-preview-badge visible';
             return;
           }
@@ -175,12 +196,26 @@ export class GameRenderer {
     });
   }
 
+  /* ---------------- Floating Combat Text ---------------- */
+  spawnFloatingText(x, y, text, color = '#ffd700') {
+    this.floatingTexts.push({
+      x,
+      y,
+      text,
+      color,
+      alpha: 1,
+      vy: -1.2,
+      scale: 1.2
+    });
+  }
+
   /* ---------------- Particle System ---------------- */
   startParticleLoop() {
     this.animating = true;
     const loop = () => {
       this.updateParticles();
-      this.drawParticles();
+      this.updateFloatingTexts();
+      this.drawCanvas();
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
@@ -217,10 +252,22 @@ export class GameRenderer {
     }
   }
 
-  drawParticles() {
+  updateFloatingTexts() {
+    for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+      const t = this.floatingTexts[i];
+      t.y += t.vy;
+      t.alpha -= 0.016;
+      if (t.alpha <= 0) {
+        this.floatingTexts.splice(i, 1);
+      }
+    }
+  }
+
+  drawCanvas() {
     if (!this.ctx) return;
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+    // Draw Particles
     for (const p of this.particles) {
       this.ctx.save();
       this.ctx.globalAlpha = Math.max(0, p.alpha);
@@ -228,6 +275,18 @@ export class GameRenderer {
       this.ctx.beginPath();
       this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       this.ctx.fill();
+      this.ctx.restore();
+    }
+
+    // Draw Floating Texts
+    for (const t of this.floatingTexts) {
+      this.ctx.save();
+      this.ctx.globalAlpha = Math.max(0, t.alpha);
+      this.ctx.fillStyle = t.color;
+      this.ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      this.ctx.shadowColor = 'rgba(0,0,0,0.8)';
+      this.ctx.shadowBlur = 6;
+      this.ctx.fillText(t.text, t.x, t.y);
       this.ctx.restore();
     }
   }

@@ -1,6 +1,7 @@
 /**
  * EMBER & TIDE - Web Audio Procedural Synthesizer
  * Zero audio files required: all sound effects generated mathematically in real time.
+ * Provides distinct audio cues for actions, combos, counters, and status effects.
  */
 
 export class SoundFX {
@@ -124,6 +125,54 @@ export class SoundFX {
 
     osc.start(now);
     osc.stop(now + 0.25);
+  }
+
+  /** Shield buff chime. */
+  playShield() {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(440, now);
+    osc.frequency.exponentialRampToValueAtTime(880, now + 0.2);
+
+    gain.gain.setValueAtTime(0.14, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.2);
+  }
+
+  /** Flame burn sizzle. */
+  playBurn() {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(260, now);
+    osc.frequency.linearRampToValueAtTime(180, now + 0.15);
+
+    gain.gain.setValueAtTime(0.1, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.15);
   }
 
   /** Fanfare on victory. */

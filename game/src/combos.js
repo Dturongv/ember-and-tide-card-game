@@ -1,6 +1,7 @@
 /**
  * EMBER & TIDE - Combo & Counter Resolution System
  * Evaluates Harmonic Pairs, Elemental Reactions, and Counter Breaks.
+ * Fully drives combat status effects: Burn, Thorns, Freeze, Shatter, and Pierce.
  */
 
 import { SUITS } from './cards.js';
@@ -10,15 +11,16 @@ export const HARMONIC_PAIRS = {
     name: 'Hellfire Surge',
     bonusDamage: 4,
     bonusShield: 0,
-    burn: 3,
-    description: '+4 Direct Damage & 3 Burn to enemy'
+    burn: 2,
+    piercing: false,
+    description: '+4 Direct Damage & 2 Burn stacks (scorch over time)'
   },
   tide: {
     name: 'Oceanic Bastion',
     bonusDamage: 0,
     bonusShield: 6,
     drawCards: 1,
-    description: '+6 Shield & Draw 1 Card'
+    description: '+6 Shield & Draw 1 Card immediately'
   },
   gale: {
     name: 'Cyclonic Haste',
@@ -33,7 +35,7 @@ export const HARMONIC_PAIRS = {
     bonusDamage: 0,
     bonusShield: 8,
     thorns: 3,
-    description: '+8 Shield & 3 Thorns reflection'
+    description: '+8 Shield & 3 Thorns (reflects attacker strikes)'
   }
 };
 
@@ -42,8 +44,9 @@ export const ELEMENTAL_REACTIONS = {
     name: 'Wildfire',
     bonusDamage: 6,
     bonusShield: 0,
+    burn: 1,
     piercing: false,
-    description: 'Blazing storm deals +6 Burst Damage!'
+    description: 'Blazing storm deals +6 Burst Damage & inflicts Burn!'
   },
   'ember+tide': {
     name: 'Steam Veil',
@@ -57,7 +60,7 @@ export const ELEMENTAL_REACTIONS = {
     bonusDamage: 7,
     bonusShield: 0,
     piercing: true,
-    description: 'Molten rock pierces enemy defense for +7 Dmg!'
+    description: 'Molten rock pierces enemy defenses for +7 Direct Dmg!'
   },
   'gale+tide': {
     name: 'Maelstrom',
@@ -71,14 +74,14 @@ export const ELEMENTAL_REACTIONS = {
     bonusDamage: 5,
     bonusShield: 0,
     breakShield: true,
-    description: 'Crushes enemy defenses and shatters shield!'
+    description: 'Shatters enemy shield to 0 and crushes for +5 Dmg!'
   },
   'stone+tide': {
     name: 'Glacier',
     bonusDamage: 0,
     bonusShield: 8,
     freeze: true,
-    description: 'Absolute zero barrier grants 8 Shield & chills foe'
+    description: 'Absolute zero barrier grants 8 Shield & freezes foe action!'
   }
 };
 

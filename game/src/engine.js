@@ -1,6 +1,6 @@
 /**
  * EMBER & TIDE - Duel Engine & Turn State Machine
- * Handles state transitions, combat calculations, and win/loss resolution.
+ * Handles state transitions, combat calculations, status effects, and win/loss resolution.
  */
 
 import { createDeck } from './cards.js';
@@ -34,6 +34,11 @@ export class DuelEngine {
       hp: 20,
       shield: 0,
       energy: 3,
+      maxEnergy: 3,
+      bonusEnergyNext: 0,
+      burn: 0,
+      thorns: 0,
+      frozen: false,
       deck: createDeck(this.seed + 10),
       hand: [],
       discard: [],
@@ -45,6 +50,9 @@ export class DuelEngine {
       maxHp: 20,
       hp: 20,
       shield: 0,
+      burn: 0,
+      thorns: 0,
+      frozen: false,
       deck: createDeck(this.seed + 99),
       hand: [],
       discard: [],
@@ -78,17 +86,40 @@ export class DuelEngine {
     this.turnNumber++;
     this.currentState = STATE.PLAYER_TURN;
 
-    // Reset energy & shields for new round
-    this.player.energy = 3;
+    // 1. Process Energy & Shields
+    this.player.energy = 3 + (this.player.bonusEnergyNext || 0);
+    this.player.maxEnergy = this.player.energy;
+    this.player.bonusEnergyNext = 0;
+
     this.player.shield = 0;
     this.opponent.shield = 0;
     this.player.playedCards = [];
+    this.player.thorns = 0;
+    this.opponent.thorns = 0;
 
-    // Draw up to 5 cards
+    // 2. Process Burn DoT Status
+    if (this.player.burn > 0) {
+      const burnDmg = 2;
+      this.player.hp = Math.max(0, this.player.hp - burnDmg);
+      this.player.burn--;
+      this.log(`Burn scorches you for ${burnDmg} damage!`, 'opp-action');
+    }
+    if (this.opponent.burn > 0) {
+      const burnDmg = 2;
+      this.opponent.hp = Math.max(0, this.opponent.hp - burnDmg);
+      this.opponent.burn--;
+      this.log(`Burn scorches Archmage Vex for ${burnDmg} damage!`, 'player-action');
+    }
+
+    // 3. Clear Freeze Status
+    this.player.frozen = false;
+    this.opponent.frozen = false;
+
+    // 4. Draw Cards up to 5
     this.drawCards(this.player, 5 - this.player.hand.length);
     this.drawCards(this.opponent, 5 - this.opponent.hand.length);
 
-    // AI forms intent
+    // 5. AI forms Telegraphed Intent
     this.opponent.intent = this.ai.planTurn(this.opponent.hand, this.opponent, this.player);
 
     this.log(`--- Turn ${this.turnNumber} begins ---`);
@@ -129,6 +160,9 @@ export class DuelEngine {
     const oIntent = this.opponent.intent;
     const oCards = [oIntent.faceUp, oIntent.faceDown].filter(Boolean);
 
+    // Events list for visual animations & floating combat text
+    const events = [];
+
     // Remove played cards from hands
     pCards.forEach(c => {
       const idx = this.player.hand.indexOf(c);
@@ -145,6 +179,7 @@ export class DuelEngine {
     // 1. Evaluate Player Combo
     let playerDamage = pCards.reduce((acc, c) => acc + c.value, 0);
     let playerShield = 0;
+    let playerPiercing = false;
     const playerCombo = pCards.length === 2 ? evaluateCombo(pCards[0], pCards[1]) : null;
 
     if (playerCombo) {
@@ -152,7 +187,31 @@ export class DuelEngine {
       const det = playerCombo.details;
       playerDamage += (det.bonusDamage || 0);
       playerShield += (det.bonusShield || 0);
+
+      if (det.piercing) playerPiercing = true;
+      if (det.burn) {
+        this.opponent.burn += det.burn;
+        events.push({ type: 'status', target: 'opponent', status: 'burn', count: det.burn });
+      }
+      if (det.thorns) {
+        this.player.thorns += det.thorns;
+        events.push({ type: 'status', target: 'player', status: 'thorns', count: det.thorns });
+      }
+      if (det.freeze) {
+        this.opponent.frozen = true;
+        events.push({ type: 'status', target: 'opponent', status: 'frozen' });
+      }
+      if (det.breakShield) {
+        this.opponent.shield = 0;
+        events.push({ type: 'floating', target: 'opponent', text: 'SHATTERED!', color: '#8A5CF6' });
+      }
+      if (det.bonusEnergyNext) {
+        this.player.bonusEnergyNext += det.bonusEnergyNext;
+        events.push({ type: 'floating', target: 'player', text: '+1 ENERGY NEXT', color: '#F2B705' });
+      }
       if (det.drawCards) this.drawCards(this.player, det.drawCards);
+
+      events.push({ type: 'combo', name: playerCombo.name, desc: det.description });
       this.log(`COMBO! ${playerCombo.name}: ${det.description}`, 'combo-action');
     }
 
@@ -165,6 +224,8 @@ export class DuelEngine {
       const det = oppCombo.details;
       oppDamage += (det.bonusDamage || 0);
       oppShield += (det.bonusShield || 0);
+      if (det.burn) this.player.burn += det.burn;
+      if (det.thorns) this.opponent.thorns += det.thorns;
       this.log(`Archmage Vex triggered ${oppCombo.name}!`, 'combo-action');
     }
 
@@ -175,25 +236,58 @@ export class DuelEngine {
       if (cb.countered) {
         this.counterBreaks++;
         counterBonus += cb.breakBonus;
+        events.push({ type: 'floating', target: 'opponent', text: `COUNTER BREAK! +${cb.breakBonus}`, color: '#E84A27' });
         this.log(`COUNTER BREAK! ${cb.reason}`, 'combo-action');
       }
     }
     playerDamage += counterBonus;
 
+    // Apply Freeze reduction to opponent attack if player froze them
+    if (this.opponent.frozen) {
+      oppDamage = Math.floor(oppDamage * 0.5);
+      this.log('Glacier froze Archmage Vex, reducing incoming attack by 50%!', 'combo-action');
+    }
+
     // 4. Apply Shields
     this.player.shield += playerShield;
     this.opponent.shield += oppShield;
 
+    if (playerShield > 0) {
+      events.push({ type: 'floating', target: 'player', text: `+${playerShield} SHIELD`, color: '#1BA6A6' });
+    }
+    if (oppShield > 0) {
+      events.push({ type: 'floating', target: 'opponent', text: `+${oppShield} SHIELD`, color: '#1BA6A6' });
+    }
+
     // 5. Apply Damage: Opponent takes Player Damage
-    let damageToOppHp = Math.max(0, playerDamage - this.opponent.shield);
-    this.opponent.shield = Math.max(0, this.opponent.shield - playerDamage);
-    this.opponent.hp = Math.max(0, this.opponent.hp - damageToOppHp);
+    let damageToOppHp = 0;
+    if (playerPiercing) {
+      damageToOppHp = playerDamage;
+      this.opponent.hp = Math.max(0, this.opponent.hp - damageToOppHp);
+      events.push({ type: 'floating', target: 'opponent', text: `-${damageToOppHp} HP (PIERCE)`, color: '#F2B705' });
+    } else {
+      damageToOppHp = Math.max(0, playerDamage - this.opponent.shield);
+      this.opponent.shield = Math.max(0, this.opponent.shield - playerDamage);
+      this.opponent.hp = Math.max(0, this.opponent.hp - damageToOppHp);
+      events.push({ type: 'floating', target: 'opponent', text: `-${damageToOppHp} HP`, color: '#ff4141' });
+    }
     this.log(`You strike for ${playerDamage} (Enemy HP: ${this.opponent.hp})`, 'player-action');
+
+    // Thorns reflection from Player to Opponent
+    if (this.player.thorns > 0 && oppDamage > 0) {
+      const reflected = this.player.thorns;
+      this.opponent.hp = Math.max(0, this.opponent.hp - reflected);
+      events.push({ type: 'floating', target: 'opponent', text: `-${reflected} THORNS`, color: '#8A5CF6' });
+      this.log(`Granite Thorns reflect ${reflected} damage to Archmage Vex!`, 'combo-action');
+    }
 
     // Apply Damage: Player takes Opponent Damage
     let damageToPlayerHp = Math.max(0, oppDamage - this.player.shield);
     this.player.shield = Math.max(0, this.player.shield - oppDamage);
     this.player.hp = Math.max(0, this.player.hp - damageToPlayerHp);
+    if (damageToPlayerHp > 0) {
+      events.push({ type: 'floating', target: 'player', text: `-${damageToPlayerHp} HP`, color: '#ff4141' });
+    }
     this.log(`Opponent strikes for ${oppDamage} (Your HP: ${this.player.hp})`, 'opp-action');
 
     // 6. Check Win / Loss
@@ -214,7 +308,8 @@ export class DuelEngine {
       oppCombo,
       counterBonus,
       playerDamage,
-      oppDamage
+      oppDamage,
+      events
     };
   }
 
