@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EMBER & TIDE - Tactical Elemental Duel</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div id="app" class="app-root">
+    <!-- Particle canvas overlay -->
+    <canvas id="fx-canvas" class="fx-canvas" width="1280" height="720"></canvas>
+
+    <!-- Title Screen -->
+    <section id="title-screen" class="screen title-screen active">
+      <div class="title-backdrop"></div>
+      <div class="title-container">
+        <header class="title-header">
+          <div class="title-emblem">
+            <span class="emblem-dot ember-dot"></span>
+            <span class="emblem-line"></span>
+            <span class="emblem-dot tide-dot"></span>
+          </div>
+          <h1 class="game-title">EMBER <span class="title-amp">&amp;</span> TIDE</h1>
+          <p class="game-subtitle">Tactical 1v1 Elemental Duel</p>
+        </header>
+
+        <!-- 4 Showcase cards -->
+        <div class="showcase-cards" id="title-showcase"></div>
+
+        <div class="title-actions">
+          <button id="btn-play" class="btn btn-primary btn-gold">
+            <span class="btn-glow"></span>
+            <span class="btn-text">PLAY DUEL</span>
+          </button>
+        </div>
+
+        <footer class="title-guide">
+          <div class="guide-item"><kbd>1</kbd>–<kbd>5</kbd> Select Cards</div>
+          <div class="guide-item"><kbd>Space</kbd> / <kbd>Enter</kbd> Confirm &amp; End Turn</div>
+          <div class="guide-item"><kbd>M</kbd> Mute Audio</div>
+          <div class="guide-item"><kbd>R</kbd> Rematch</div>
+        </footer>
+      </div>
+    </section>
+
+    <!-- Table Duel Screen -->
+    <section id="table-screen" class="screen table-screen">
+      <!-- Felt Table Board -->
+      <main class="table-board">
+        <!-- Opponent Zone (Top) -->
+        <header class="duel-row opponent-row">
+          <div class="hud opponent-hud" id="opponent-hud">
+            <div class="hud-identity">
+              <div class="avatar-ring opponent-avatar">AI</div>
+              <div class="hud-names">
+                <span class="hud-title">ARCHMAGE VEX</span>
+                <span class="hud-status" id="opponent-status">Plotting...</span>
+              </div>
+            </div>
+            <div class="hud-bars">
+              <div class="bar-container hp-container">
+                <div class="bar-label">HP <span id="opponent-hp-text">20/20</span></div>
+                <div class="bar-track"><div id="opponent-hp-bar" class="bar-fill hp-fill" style="width: 100%;"></div></div>
+              </div>
+              <div class="bar-container shield-container">
+                <div class="bar-label">SHIELD <span id="opponent-shield-text">0</span></div>
+                <div class="bar-track"><div id="opponent-shield-bar" class="bar-fill shield-fill" style="width: 0%;"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hand opponent-hand" id="opponent-hand"></div>
+        </header>
+
+        <!-- Center Arena -->
+        <section class="arena-zone">
+          <div class="arena-center">
+            <!-- Telegraphed Intent Label -->
+            <div class="arena-header">
+              <span class="arena-label">ARENA CONFLICT</span>
+              <div class="intent-banner" id="intent-banner">
+                <span class="intent-icon">&#9876;</span>
+                <span class="intent-text" id="intent-text">OPPONENT INTENT: FACE-UP TELEGRAPHED</span>
+              </div>
+            </div>
+
+            <!-- Arena Slot Grid -->
+            <div class="arena-grid">
+              <!-- Opponent Arena Cards (1 Face-up, 1 Face-down) -->
+              <div class="arena-half opponent-half">
+                <div class="arena-slot-label">Opponent Intent</div>
+                <div class="arena-slots" id="opponent-arena-slots">
+                  <div class="arena-slot" id="opp-slot-0"></div>
+                  <div class="arena-slot" id="opp-slot-1"></div>
+                </div>
+              </div>
+
+              <!-- Arena Clash Divider -->
+              <div class="arena-clash-divider">
+                <div class="clash-rune">&#10022;</div>
+                <div id="combo-callout" class="combo-callout"></div>
+              </div>
+
+              <!-- Player Arena Cards -->
+              <div class="arena-half player-half">
+                <div class="arena-slot-label">Your Played Cards (Max 2 / turn)</div>
+                <div class="arena-slots" id="player-arena-slots">
+                  <div class="arena-slot" id="player-slot-0"></div>
+                  <div class="arena-slot" id="player-slot-1"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Player Zone (Bottom) -->
+        <footer class="duel-row player-row">
+          <div class="hud player-hud" id="player-hud">
+            <div class="hud-identity">
+              <div class="avatar-ring player-avatar">YOU</div>
+              <div class="hud-names">
+                <span class="hud-title">ELEMENTALIST</span>
+                <span class="hud-status" id="player-status">Your Turn</span>
+              </div>
+            </div>
+            <div class="hud-bars">
+              <div class="bar-container hp-container">
+                <div class="bar-label">HP <span id="player-hp-text">20/20</span></div>
+                <div class="bar-track"><div id="player-hp-bar" class="bar-fill hp-fill" style="width: 100%;"></div></div>
+              </div>
+              <div class="bar-container shield-container">
+                <div class="bar-label">SHIELD <span id="player-shield-text">0</span></div>
+                <div class="bar-track"><div id="player-shield-bar" class="bar-fill shield-fill" style="width: 0%;"></div></div>
+              </div>
+            </div>
+            <div class="energy-display" id="player-energy-display">
+              <span class="energy-label">ENERGY</span>
+              <div class="energy-orbs" id="energy-orbs">
+                <span class="energy-orb active"></span>
+                <span class="energy-orb active"></span>
+                <span class="energy-orb active"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Combo Ready Preview Badge -->
+          <div id="combo-preview-badge" class="combo-preview-badge"></div>
+
+          <!-- Player Fanned Hand -->
+          <div class="hand player-hand" id="player-hand"></div>
+
+          <!-- Turn Controls -->
+          <div class="turn-controls">
+            <button id="btn-end-turn" class="btn btn-primary btn-turn">
+              <span class="btn-text">END TURN</span>
+              <span class="btn-sub"><kbd>Space</kbd></span>
+            </button>
+            <button id="btn-mute" class="btn btn-icon" title="Toggle Sound [M]">&#128266;</button>
+          </div>
+        </footer>
+      </main>
+
+      <!-- Combat Log Side Drawer -->
+      <aside class="combat-drawer" id="combat-drawer">
+        <header class="drawer-header">DUEL CHRONICLE</header>
+        <div class="log-entries" id="combat-log"></div>
+      </aside>
+    </section>
+
+    <!-- Victory Overlay -->
+    <div id="victory-modal" class="modal-overlay victory-modal">
+      <div class="modal-panel">
+        <div class="modal-laurel">&#127942;</div>
+        <h2 class="modal-title victory-title">VICTORY</h2>
+        <p class="modal-sub">The elements bend to your command!</p>
+        <div class="modal-stats" id="victory-stats"></div>
+        <div class="modal-actions">
+          <button id="btn-victory-again" class="btn btn-primary btn-gold">
+            <span class="btn-text">PLAY AGAIN</span>
+            <span class="btn-sub"><kbd>R</kbd></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Defeat Overlay -->
+    <div id="defeat-modal" class="modal-overlay defeat-modal">
+      <div class="modal-panel">
+        <div class="modal-skull">&#9760;</div>
+        <h2 class="modal-title defeat-title">DEFEAT</h2>
+        <p class="modal-sub">Archmage Vex consumed your life essence.</p>
+        <div class="modal-stats" id="defeat-stats"></div>
+        <div class="modal-actions">
+          <button id="btn-defeat-rematch" class="btn btn-primary btn-danger">
+            <span class="btn-text">REMATCH</span>
+            <span class="btn-sub"><kbd>R</kbd></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Module Entry -->
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

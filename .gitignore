@@ -1,0 +1,10 @@
+best-card-game-20261122-1826-kit/
+kit.tar.gz
+skill.md
+out/
+node_modules/
+.DS_Store
+
+transcripts.tar.gz
+capture_all.js
+serve.ts
