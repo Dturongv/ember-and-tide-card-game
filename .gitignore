@@ -8,3 +8,4 @@ node_modules/
 transcripts.tar.gz
 capture_all.js
 serve.ts
+update_repo.mjs
